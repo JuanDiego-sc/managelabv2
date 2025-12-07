@@ -1,0 +1,37 @@
+# Compilados y build
+target/
+*.class
+*.jar
+*.war
+*.ear
+
+# Logs
+*.log
+
+# IDEs
+.vscode/
+.idea/
+*.iml
+*.iws
+*.ipr
+.settings/
+.classpath
+.project
+
+# Sistema operativo
+.DS_Store
+Thumbs.db
+
+# Maven
+pom.xml.tag
+pom.xml.releaseBackup
+pom.xml.versionsBackup
+pom.xml.next
+release.properties
+dependency-reduced-pom.xml
+
+# OpenXava específico
+tomcat/
+data/
+persistence/
+temp-data/

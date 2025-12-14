@@ -86,7 +86,7 @@ public class Reserva {
             return;
         }
 
-        // Si est· rechazada, no afecta disponibilidad
+        // Si est√° rechazada, no afecta disponibilidad
         if (estadoReserva == EstadoReserva.RECHAZADA) return;
 
         int inicio = toMinutesOrFail(horaInicio, "horaInicio");
@@ -102,9 +102,11 @@ public class Reserva {
                    "AND r.estadoReserva = :estadoAprobada " +
                    "AND (:idActual IS NULL OR r.id <> :idActual)";
 
+        EntityManager em = XPersistence.getManager();
         @SuppressWarnings("unchecked")
-        List<Reserva> aprobadas = XPersistence.getManager()
+        List<Reserva> aprobadas = em
             .createQuery(q)
+            .setFlushMode(FlushModeType.COMMIT)
             .setParameter("labId", laboratorio.getId())
             .setParameter("fecha", fecha)
             .setParameter("estadoAprobada", EstadoReserva.APROBADA)

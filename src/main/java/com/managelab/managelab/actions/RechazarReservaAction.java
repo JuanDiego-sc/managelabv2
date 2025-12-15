@@ -44,7 +44,7 @@ public class RechazarReservaAction extends TabBaseAction {
             return;
         }
 
-        //  clave: evitar que el callback ejecute queries al hacer merge/commit
+        // Evitar que el callback vuelva a ejecutar la query de disponibilidad
         reserva.setOmitirValidacionDisponibilidad(true);
 
         reserva.setEstadoReserva(EstadoReserva.RECHAZADA);

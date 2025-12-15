@@ -55,21 +55,21 @@ public class Reserva {
     private String motivoRechazo;
 
     /**
-     * Flag para evitar validaciones "pesadas" (con query) cuando se hace merge()
-     * desde acciones de aprobar/rechazar.
+     * Flag para evitar validaciones pesadas cuando se hace merge() desde
+     * las acciones de aprobar/rechazar.
      */
     @Transient
     private boolean omitirValidacionDisponibilidad = false;
 
     /**
-     * UN SOLO callback para persist/update (evita el error de multiples @PrePersist).
+     * UN SOLO callback para persist/update.
      */
     @PrePersist
     @PreUpdate
     private void antesDeGuardar() {
         asegurarEstadoInicial();
 
-        // Si viene de Aprobar/Rechazar (acciones), evitamos la validacion con query
+        // Si viene de Aprobar/Rechazar y ya validamos fuera, no repetimos la query
         if (!omitirValidacionDisponibilidad) {
             validarDisponibilidadInterna();
         }
@@ -81,39 +81,49 @@ public class Reserva {
         }
     }
 
+    /**
+     * Valida conflicto de horario contra reservas APROBADAS o PENDIENTES
+     * del mismo laboratorio y fecha.
+     */
     private void validarDisponibilidadInterna() {
-        if (laboratorio == null || laboratorio.getId() == null || fecha == null || horaInicio == null || horaFin == null) {
+        if (laboratorio == null || laboratorio.getId() == null ||
+            fecha == null || horaInicio == null || horaFin == null) {
             return;
         }
-
-        // Si está rechazada, no afecta disponibilidad
-        if (estadoReserva == EstadoReserva.RECHAZADA) return;
 
         int inicio = toMinutesOrFail(horaInicio, "horaInicio");
         int fin = toMinutesOrFail(horaFin, "horaFin");
 
         if (fin <= inicio) {
-            throw new javax.validation.ValidationException("La hora fin debe ser mayor a la hora inicio");
+            throw new javax.validation.ValidationException(
+                "La hora fin debe ser mayor a la hora inicio"
+            );
         }
 
-        String q = "SELECT r FROM Reserva r " +
-                   "WHERE r.laboratorio.id = :labId " +
-                   "AND r.fecha = :fecha " +
-                   "AND r.estadoReserva = :estadoAprobada " +
-                   "AND (:idActual IS NULL OR r.id <> :idActual)";
+        // Estados que consideramos conflicto: APROBADA y PENDIENTE
+        List<EstadoReserva> estadosConflicto =
+            Arrays.asList(EstadoReserva.APROBADA, EstadoReserva.PENDIENTE);
+
+        String q =
+            "SELECT r FROM Reserva r " +
+            "WHERE r.laboratorio.id = :labId " +
+            "AND r.fecha = :fecha " +
+            "AND r.estadoReserva IN :estados " +
+            "AND (:idActual IS NULL OR r.id <> :idActual)";
 
         EntityManager em = XPersistence.getManager();
+
         @SuppressWarnings("unchecked")
-        List<Reserva> aprobadas = em
+        List<Reserva> reservasConflicto = em
             .createQuery(q)
             .setFlushMode(FlushModeType.COMMIT)
             .setParameter("labId", laboratorio.getId())
             .setParameter("fecha", fecha)
-            .setParameter("estadoAprobada", EstadoReserva.APROBADA)
+            .setParameter("estados", estadosConflicto)
             .setParameter("idActual", id)
             .getResultList();
 
-        for (Reserva r : aprobadas) {
+        for (Reserva r : reservasConflicto) {
             if (r.getHoraInicio() == null || r.getHoraFin() == null) continue;
 
             int rInicio = toMinutesOrFail(r.getHoraInicio(), "horaInicio existente");
@@ -122,7 +132,7 @@ public class Reserva {
             boolean traslapa = (rInicio < fin) && (rFin > inicio);
             if (traslapa) {
                 throw new javax.validation.ValidationException(
-                    "El laboratorio ya tiene una reserva aprobada en ese horario"
+                    "El laboratorio ya tiene una reserva registrada (aprobada o pendiente) en ese horario."
                 );
             }
         }
@@ -155,6 +165,7 @@ public class Reserva {
     }
 
     // Getters y Setters
+
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
 
@@ -179,7 +190,10 @@ public class Reserva {
     public String getMotivoRechazo() { return motivoRechazo; }
     public void setMotivoRechazo(String motivoRechazo) { this.motivoRechazo = motivoRechazo; }
 
-    public boolean isOmitirValidacionDisponibilidad() { return omitirValidacionDisponibilidad; }
+    public boolean isOmitirValidacionDisponibilidad() {
+        return omitirValidacionDisponibilidad;
+    }
+
     public void setOmitirValidacionDisponibilidad(boolean omitirValidacionDisponibilidad) {
         this.omitirValidacionDisponibilidad = omitirValidacionDisponibilidad;
     }
